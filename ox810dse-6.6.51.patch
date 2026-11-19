@@ -3451,8 +3451,8 @@ diff -ruN a/arch/arm/mach-oxnas/irq.c b/arch/arm/mach-oxnas/irq.c
 +
 diff -ruN a/arch/arm/mach-oxnas/Kconfig b/arch/arm/mach-oxnas/Kconfig
 --- a/arch/arm/mach-oxnas/Kconfig	1970-01-01 03:00:00.000000000 +0300
-+++ b/arch/arm/mach-oxnas/Kconfig	2026-11-17 19:40:51.000000000 +0300
-@@ -0,0 +1,397 @@
++++ b/arch/arm/mach-oxnas/Kconfig	2026-11-18 21:21:27.160264825 +0300
+@@ -0,0 +1,401 @@
 +
 +menuconfig ARCH_OXNAS
 +	bool "Oxford Semiconductor NAS SoC"
@@ -3466,6 +3466,10 @@ diff -ruN a/arch/arm/mach-oxnas/Kconfig b/arch/arm/mach-oxnas/Kconfig
 +	select ARM_PATCH_PHYS_VIRT
 +	help
 +	  This enables support for OxSemi NAS SoC
++
++config NET_SELFTESTS
++	tristate
++	default n if ARCH_OXNAS
 +
 +if ARCH_OXNAS
 +
@@ -16520,8 +16524,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_desc.c b/drivers/net/etherne
 +}
 diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_desc.h b/drivers/net/ethernet/synopsys/gmac/gmac_desc.h
 --- a/drivers/net/ethernet/synopsys/gmac/gmac_desc.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/drivers/net/ethernet/synopsys/gmac/gmac_desc.h	2026-11-18 09:14:17.000000000 +0300
-@@ -0,0 +1,621 @@
++++ b/drivers/net/ethernet/synopsys/gmac/gmac_desc.h	2026-11-19 02:10:07.000000000 +0300
+@@ -0,0 +1,622 @@
 +/*
 + * linux/arch/arm/mach-oxnas/gmac_desc.h
 + *
@@ -16895,7 +16899,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_desc.h b/drivers/net/etherne
 +	const struct skb_shared_info    *shinfo = skb_shinfo(skb);
 +	volatile gmac_dma_desc_t        *previous_descriptor = NULL;
 +	gmac_dma_desc_t                 *previous_shadow = NULL;
-+	int                             frag_index = 0;
++	int                             frag_index = 0, total_parts = 0;
 +	int                             last_desc_index, first_desc_index;
 +
 +	do {
@@ -16996,26 +17000,27 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_desc.h b/drivers/net/etherne
 +			if (++gmac_priv->tx_gmac_desc_list_info.w_index >= gmac_priv->tx_gmac_desc_list_info.num_descriptors)
 +				gmac_priv->tx_gmac_desc_list_info.w_index = 0;
 +		} while (++part < parts);
-+
-+		// Ensure all prior writes to the descriptors shared with MAC have
-+		// completed before setting the descriptor ownership flags to transfer
-+		// ownership to the GMAC
-+		wmb();
-+
-+		// Transfer descriptors to GMAC's ownership in reverse order, so when
-+		// GMAC begins processing the first descriptor all others are already
-+		// owned by the GMAC.  Walk backwards within this fragment's parts only;
-+		// 'parts' descriptors were consumed since last_desc_index.
-+		while (part--) {
-+			gmac_priv->tx_gmac_desc_list_info.base_ptr[last_desc_index].status = 1UL << TDES0_OWN_BIT;
-+			if (last_desc_index-- == 0)
-+				last_desc_index = gmac_priv->tx_gmac_desc_list_info.num_descriptors - 1;
-+		}
-+
-+		// Account for the number of descriptors used to hold this fragment
-+		gmac_priv->tx_gmac_desc_list_info.empty_count -= parts;
++		total_parts += parts;
 +
 +	} while (++frag_index <= shinfo->nr_frags);
++
++	// Ensure all prior writes to the descriptors shared with MAC have
++	// completed before setting the descriptor ownership flags to transfer
++	// ownership to the GMAC
++	wmb();
++
++	// Transfer descriptors to GMAC's ownership in reverse order, so when
++	// GMAC begins processing the first descriptor all others are already
++	// owned by the GMAC
++	frag_index = total_parts;
++	while (frag_index--) {
++		gmac_priv->tx_gmac_desc_list_info.base_ptr[last_desc_index].status = 1UL << TDES0_OWN_BIT;
++		if (last_desc_index-- == 0)
++			last_desc_index = gmac_priv->tx_gmac_desc_list_info.num_descriptors - 1;
++	}
++
++	// Account for the number of descriptors used to hold all fragments
++	gmac_priv->tx_gmac_desc_list_info.empty_count -= total_parts;
 +
 +	return first_desc_index;
 +}
@@ -17793,7 +17798,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac.h b/drivers/net/ethernet/syn
 +
 diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/ethernet/synopsys/gmac/gmac-napi.c
 --- a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/drivers/net/ethernet/synopsys/gmac/gmac-napi.c	2026-11-18 21:06:28.000000000 +0300
++++ b/drivers/net/ethernet/synopsys/gmac/gmac-napi.c	2026-11-19 12:01:16.000000000 +0300
 @@ -0,0 +1,3843 @@
 +/*
 + * linux/arch/arm/mach-oxnas/gmac.c
@@ -19675,9 +19680,9 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +	return NETDEV_TX_OK;
 +
 +xmit_busy:
-+	while (frag >= fragments) {
-+		dma_unmap_single(&gmac_priv->netdev->dev, frag->phys_adr, frag->length, DMA_TO_DEVICE);
++	while (frag > fragments) {
 +		frag--;
++		dma_unmap_single(&gmac_priv->netdev->dev, frag->phys_adr, frag->length, DMA_TO_DEVICE);
 +	}
 +	return NETDEV_TX_BUSY;
 +}
@@ -21326,22 +21331,22 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +
 +#if defined(CONFIG_LEON_COPRO) && defined(CONFIG_LEON_OFFLOAD_TX)
 +	// Do TX H/W checksum and SG list processing
-+//	netdev->features |= NETIF_F_HW_CSUM;
-+//	netdev->features |= NETIF_F_IP_CSUM;
-+//#ifdef SUPPORT_IPV6
-+//	netdev->features |= NETIF_F_IPV6_CSUM;
-+//#endif
++	netdev->features |= NETIF_F_HW_CSUM;
++	netdev->features |= NETIF_F_IP_CSUM;
++#ifdef SUPPORT_IPV6
++	netdev->features |= NETIF_F_IPV6_CSUM;
++#endif
 +	netdev->features |= NETIF_F_SG;
 +
 +	// Do hardware TCP/IP Segmentation Offload
 +	netdev->features |= NETIF_F_TSO;
 +#elif !defined(CONFIG_LEON_COPRO)
 +	// Do TX H/W checksum and SG list processing
-+//	netdev->features |= NETIF_F_HW_CSUM;
-+//	netdev->features |= NETIF_F_IP_CSUM;
-+//#ifdef SUPPORT_IPV6
-+//	netdev->features |= NETIF_F_IPV6_CSUM;
-+//#endif
++	netdev->features |= NETIF_F_HW_CSUM;
++	netdev->features |= NETIF_F_IP_CSUM;
++#ifdef SUPPORT_IPV6
++	netdev->features |= NETIF_F_IPV6_CSUM;
++#endif
 +	netdev->features |= NETIF_F_SG;
 +#endif // CONFIG_LEON_COPRO && CONFIG_LEON_OFFLOAD_TX
 +
@@ -21350,7 +21355,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +#endif
 +	netdev->features |= NETIF_F_SG;
 +
-+//	netdev->hw_features = netdev->features;
++	netdev->hw_features = netdev->features;
 +
 +	// Initialize PHY support
 +	gmac_priv->using_100     = 0;
