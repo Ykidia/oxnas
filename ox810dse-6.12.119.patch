@@ -4172,8 +4172,8 @@ diff -ruN a/arch/arm/mach-oxnas/Makefile b/arch/arm/mach-oxnas/Makefile
 +obj-$(CONFIG_OXNAS_WD810_LEDS)			+= oxnas-wd810-leds.o
 diff -ruN a/arch/arm/mach-oxnas/oxnas.c b/arch/arm/mach-oxnas/oxnas.c
 --- a/arch/arm/mach-oxnas/oxnas.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/arch/arm/mach-oxnas/oxnas.c	2026-11-25 04:16:02.000000000 +0300
-@@ -0,0 +1,1501 @@
++++ b/arch/arm/mach-oxnas/oxnas.c	2026-11-25 14:52:54.000000000 +0300
+@@ -0,0 +1,1502 @@
 +/*
 + * linux/arch/arm/mach-oxnas/oxnas.c
 + *
@@ -5468,10 +5468,11 @@ diff -ruN a/arch/arm/mach-oxnas/oxnas.c b/arch/arm/mach-oxnas/oxnas.c
 +static void __init oxnas_fixup(struct tag *t, char **cmdline)
 +{
 +	printk(KERN_DEBUG "%s():\n", __func__);
-+/*
++
 +	for (; t->hdr.size; t = tag_next(t)) {
 +		if (t->hdr.tag == ATAG_MEM) {
 +			printk(KERN_DEBUG "Memory bank %d bytes @ 0x%08x\n", t->u.mem.size, t->u.mem.start);
++			arm_add_memory(t->u.mem.start, t->u.mem.size);
 +		}
 +		else if (t->hdr.tag == ATAG_REVISION) {
 +			printk(KERN_DEBUG "Board revision 0x%08x\n", t->u.revision.rev);
@@ -5482,12 +5483,12 @@ diff -ruN a/arch/arm/mach-oxnas/oxnas.c b/arch/arm/mach-oxnas/oxnas.c
 +		}
 +		else if (t->hdr.tag == ATAG_CMDLINE) {
 +			printk(KERN_DEBUG "Cmdline from bootloader: %s\n", t->u.cmdline.cmdline);
++			*cmdline = t->u.cmdline.cmdline;
 +		}
 +		else {
 +			printk(KERN_DEBUG "ATAG 0x%08x\n", t->hdr.tag);
 +		}
 +	}
-+*/
 +}
 +
 +static void __init oxnas_reserve(void)
@@ -9056,7 +9057,7 @@ diff -ruN a/arch/arm/tools/mach-types b/arch/arm/tools/mach-types
  at91sam9263ek		MACH_AT91SAM9263EK	AT91SAM9263EK		1202
 diff -ruN a/.config b/.config
 --- a/.config	1970-01-01 03:00:00.000000000 +0300
-+++ b/.config	2026-11-25 04:12:02.431763868 +0300
++++ b/.config	2026-11-25 17:23:51.020736055 +0300
 @@ -0,0 +1,2899 @@
 +#
 +# Automatically generated file; DO NOT EDIT.
@@ -17673,7 +17674,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_ethtool.h b/drivers/net/ethe
 +
 diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac.h b/drivers/net/ethernet/synopsys/gmac/gmac.h
 --- a/drivers/net/ethernet/synopsys/gmac/gmac.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/drivers/net/ethernet/synopsys/gmac/gmac.h	2026-11-24 23:32:55.000000000 +0300
++++ b/drivers/net/ethernet/synopsys/gmac/gmac.h	2026-11-25 15:10:23.000000000 +0300
 @@ -0,0 +1,289 @@
 +/*
 + * linux/arch/arm/mach-oxnas/gmac.h
@@ -17748,7 +17749,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac.h b/drivers/net/ethernet/syn
 +
 +#define MS_TO_JIFFIES(x) (((x) < (1000/(HZ))) ? 1 : (x) * (HZ) / 1000)
 +
-+#define TX_SKB_RING_ELEMENTS 128
++#define TX_SKB_RING_ELEMENTS 1024
 +
 +
 +// GMAC DMA in-memory descriptor structures
@@ -17966,8 +17967,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac.h b/drivers/net/ethernet/syn
 +
 diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/ethernet/synopsys/gmac/gmac-napi.c
 --- a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/drivers/net/ethernet/synopsys/gmac/gmac-napi.c	2026-11-25 03:15:24.000000000 +0300
-@@ -0,0 +1,3694 @@
++++ b/drivers/net/ethernet/synopsys/gmac/gmac-napi.c	2026-11-25 17:14:52.000000000 +0300
+@@ -0,0 +1,3699 @@
 +/*
 + * linux/arch/arm/mach-oxnas/gmac.c
 + *
@@ -19662,10 +19663,10 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +	for (frag_index = 0; frag_index < fragment_count; frag_index++) {
 +		u16 count = 1;
 +
-+		frag->length = frag_index == 0 ? skb_headlen(skb) : skbfrag->bv_len;
++		frag->length = frag_index == 0 ? skb_headlen(skb) : skb_frag_size(skbfrag);
 +		frag->phys_adr = dma_map_single(
 +			&netdev->dev,
-+			frag_index == 0 ? skb->data : page_address(skbfrag->bv_page) + skbfrag->bv_offset,
++			frag_index == 0 ? skb->data : page_address(skb_frag_page(skbfrag)) + skb_frag_off(skbfrag),
 +			frag->length,
 +			DMA_TO_DEVICE);
 +		BUG_ON(dma_mapping_error(&netdev->dev, frag->phys_adr));
@@ -20754,6 +20755,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +	return status;
 +}
 +
++#ifdef CONFIG_LEON_COPRO
++
 +static void gmac_init_copro(void)
 +{
 +	const struct firmware *fw = NULL;
@@ -20827,6 +20830,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +}
 +
 +#endif // TEST_COPRO
++
++#endif
 +
 +static int gmac_open(struct net_device *netdev)
 +{
@@ -21458,9 +21463,6 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +		goto probe_err_out;
 +	}
 +
-+	gmac_state_proc_init();
-+	INIT_WORK(&gmac_tx_hang_reset_work, gmac_tx_hang_reset);
-+
 +	// Record details about the hardware we found
 +	gmac_info("GMAC version=%u, vendor=%u, iomap=0x%08X\n",
 +		synopsis_version, vendor_version, (u32)netdev->base_addr);
@@ -21473,8 +21475,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +	gmac_info("Found PHY: %s at addr %u, type 0x%08X -> %s\n", gmac_priv->phy_info, gmac_priv->phy_addr, gmac_priv->phy_type,
 +		(gmac_priv->ethtool_cmd.supported & SUPPORTED_1000baseT_Full) ? "10/100/1000" : "10/100");
 +#endif
-+	gmac_info("Using %u Rx and %u Tx DMA descriptors\n",
-+		NUM_RX_DMA_DESCRIPTORS, NUM_TX_DMA_DESCRIPTORS);
++	gmac_info("Using %u Rx and %u Tx DMA descriptors, %u skb ring elements\n",
++		NUM_RX_DMA_DESCRIPTORS, NUM_TX_DMA_DESCRIPTORS, TX_SKB_RING_ELEMENTS);
 +	hw_set_mac_address(netdev->dev_addr);
 +	mac_reg_write(MAC_INT_MASK_REG, MAC_INT_DEFAULT_MASK);
 +	netdev->min_mtu = MIN_PACKET_SIZE;
@@ -21485,7 +21487,9 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +	// for queue entries has been allocated
 +	tx_que_init(&gmac_priv->tx_queue_, 0, 0);
 +	cmd_que_init(&gmac_priv->cmd_queue_, 0, 0);
++	gmac_state_proc_init();
 +#endif // CONFIG_LEON_COPRO
++	INIT_WORK(&gmac_tx_hang_reset_work, gmac_tx_hang_reset);
 +
 +	gmac_priv->interface_up = 0;
 +	return 0;
@@ -21651,11 +21655,13 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +			iounmap((void __iomem *)netdev->base_addr);
 +			netdev->base_addr = 0;
 +		}
++#ifdef CONFIG_LEON_COPRO
++		gmac_state_proc_exit();
++#endif // CONFIG_LEON_COPRO
 +		unregister_netdev(netdev);
 +		netdev->reg_state = NETREG_UNREGISTERED;
 +		gmac_priv->netdev = NULL;
 +		free_netdev(netdev);
-+		gmac_state_proc_exit();
 +
 +		platform_driver_unregister(&plat_driver);
 +		gmac_priv = NULL;
