@@ -3452,8 +3452,8 @@ diff -ruN a/arch/arm/mach-oxnas/irq.c b/arch/arm/mach-oxnas/irq.c
 +
 diff -ruN a/arch/arm/mach-oxnas/Kconfig b/arch/arm/mach-oxnas/Kconfig
 --- a/arch/arm/mach-oxnas/Kconfig	1970-01-01 03:00:00.000000000 +0300
-+++ b/arch/arm/mach-oxnas/Kconfig	2026-11-25 01:54:12.000000000 +0300
-@@ -0,0 +1,433 @@
++++ b/arch/arm/mach-oxnas/Kconfig	2026-11-26 20:46:56.000000000 +0300
+@@ -0,0 +1,434 @@
 +
 +menuconfig ARCH_OXNAS
 +	bool "Oxford Semiconductor NAS SoC"
@@ -3463,6 +3463,7 @@ diff -ruN a/arch/arm/mach-oxnas/Kconfig b/arch/arm/mach-oxnas/Kconfig
 +	select GENERIC_CLOCKEVENTS
 +	select USB_ARCH_HAS_EHCI
 +	select OXNAS_ADMA
++	select ARM_DMA_MEM_BUFFERABLE
 +	select ARM_PATCH_PHYS_VIRT
 +	help
 +	  This enables support for OxSemi NAS SoC
@@ -4172,8 +4173,8 @@ diff -ruN a/arch/arm/mach-oxnas/Makefile b/arch/arm/mach-oxnas/Makefile
 +obj-$(CONFIG_OXNAS_WD810_LEDS)			+= oxnas-wd810-leds.o
 diff -ruN a/arch/arm/mach-oxnas/oxnas.c b/arch/arm/mach-oxnas/oxnas.c
 --- a/arch/arm/mach-oxnas/oxnas.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/arch/arm/mach-oxnas/oxnas.c	2026-11-25 14:52:54.000000000 +0300
-@@ -0,0 +1,1502 @@
++++ b/arch/arm/mach-oxnas/oxnas.c	2026-11-26 02:22:13.000000000 +0300
+@@ -0,0 +1,1501 @@
 +/*
 + * linux/arch/arm/mach-oxnas/oxnas.c
 + *
@@ -4477,7 +4478,7 @@ diff -ruN a/arch/arm/mach-oxnas/oxnas.c b/arch/arm/mach-oxnas/oxnas.c
 +			__func__, res_cookie, res_cookie + size - 1);
 +		return true;
 +	}
-+	*baseptr = ioremap_wc(res_cookie, size);
++	*baseptr = ioremap(res_cookie, size);
 +	if (*baseptr < (void *)VMALLOC_START) {
 +		*baseptr = NULL;
 +		printk(KERN_ERR "%s(): error area [0x%08X..0x%08X] remap\n",
@@ -4559,7 +4560,6 @@ diff -ruN a/arch/arm/mach-oxnas/oxnas.c b/arch/arm/mach-oxnas/oxnas.c
 +
 +	// Configure read buffers - Do not disable any read buffers
 +	oxnas_ddr_write(DDR_AHB_REG, 0);
-+
 +	// Configure wrapping - Ignore wrap
 +	// Configure HPROT - Ignore all HPROT except ARM data
 +	oxnas_ddr_write(DDR_AHB2_REG,
@@ -5568,15 +5568,15 @@ diff -ruN a/arch/arm/mach-oxnas/oxnas.c b/arch/arm/mach-oxnas/oxnas.c
 +
 +void __init oxnas_init_resources(void)
 +{
-+	oxnas_ioremap(&rps_regs_base, RPS_BASE_PA, SZ_1M);
++	oxnas_ioremap_wc(&rps_regs_base, RPS_BASE_PA, SZ_1M);
 +	printk(KERN_DEBUG "RPS registers remapped:    from 0x%08X to 0x%08X\n", RPS_BASE_PA, (u32)rps_regs_base);
-+	oxnas_ioremap(&sys_regs_base, SYS_CONTROL_BASE_PA, SZ_1M);
++	oxnas_ioremap_wc(&sys_regs_base, SYS_CONTROL_BASE_PA, SZ_1M);
 +	printk(KERN_DEBUG "System registers remapped: from 0x%08X to 0x%08X\n", SYS_CONTROL_BASE_PA, (u32)sys_regs_base);
-+	oxnas_ioremap(&gpio_regs_base, GPIO_A_BASE_PA, 2 * SZ_1M);	// GPIO_A_BASE & GPIO_B_BASE
++	oxnas_ioremap_wc(&gpio_regs_base, GPIO_A_BASE_PA, 2 * SZ_1M);	// GPIO_A_BASE & GPIO_B_BASE
 +	printk(KERN_DEBUG "GPIO registers remapped:   from 0x%08X to 0x%08X\n", GPIO_A_BASE_PA, (u32)gpio_regs_base);
-+	oxnas_ioremap(&ddr_regs_base, DDR_REGS_BASE_PA, SZ_1M);
++	oxnas_ioremap_wc(&ddr_regs_base, DDR_REGS_BASE_PA, SZ_1M);
 +	printk(KERN_DEBUG "DDR registers remapped:    from 0x%08X to 0x%08X\n", DDR_REGS_BASE_PA, (u32)ddr_regs_base);
-+	oxnas_ioremap(&pwm_regs_base, PWM_BASE_PA, SZ_1M);
++	oxnas_ioremap_wc(&pwm_regs_base, PWM_BASE_PA, SZ_1M);
 +	printk(KERN_DEBUG "PWM registers remapped:    from 0x%08X to 0x%08X\n", PWM_BASE_PA, (u32)pwm_regs_base);
 +	cached_sram_base
 +#if defined(CONFIG_DRIVERS_PRIVATE_IN_SRAM) && !defined(CONFIG_DESCRIPTORS_IN_SRAM)
@@ -9057,7 +9057,7 @@ diff -ruN a/arch/arm/tools/mach-types b/arch/arm/tools/mach-types
  at91sam9263ek		MACH_AT91SAM9263EK	AT91SAM9263EK		1202
 diff -ruN a/.config b/.config
 --- a/.config	1970-01-01 03:00:00.000000000 +0300
-+++ b/.config	2026-11-25 17:23:51.020736055 +0300
++++ b/.config	2026-11-26 20:48:25.721907993 +0300
 @@ -0,0 +1,2899 @@
 +#
 +# Automatically generated file; DO NOT EDIT.
@@ -9425,6 +9425,7 @@ diff -ruN a/.config b/.config
 +CONFIG_NEED_KUSER_HELPERS=y
 +CONFIG_KUSER_HELPERS=y
 +CONFIG_ARM_L1_CACHE_SHIFT=5
++CONFIG_ARM_DMA_MEM_BUFFERABLE=y
 +CONFIG_DEBUG_ALIGN_RODATA=y
 +# end of System Type
 +
@@ -11725,7 +11726,6 @@ diff -ruN a/.config b/.config
 +CONFIG_HAS_DMA=y
 +CONFIG_DMA_OPS_HELPERS=y
 +CONFIG_NEED_DMA_MAP_STATE=y
-+CONFIG_ARCH_HAS_DMA_WRITE_COMBINE=y
 +CONFIG_DMA_DECLARE_COHERENT=y
 +CONFIG_ARCH_HAS_SETUP_DMA_OPS=y
 +CONFIG_ARCH_HAS_TEARDOWN_DMA_OPS=y
@@ -14401,8 +14401,8 @@ diff -ruN a/drivers/dma/Makefile b/drivers/dma/Makefile
  obj-$(CONFIG_PLX_DMA) += plx_dma.o
 diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 --- a/drivers/dma/oxnas_adma.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/drivers/dma/oxnas_adma.c	2026-11-25 02:44:15.000000000 +0300
-@@ -0,0 +1,2041 @@
++++ b/drivers/dma/oxnas_adma.c	2026-11-26 02:21:39.000000000 +0300
+@@ -0,0 +1,1983 @@
 +/**************************************************************************
 + *
 + *  Copyright (C) 2008 Oxford Semiconductor Ltd
@@ -14435,7 +14435,6 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +#include "dmaengine.h"
 +
 +
-+/* MODULE API */
 +MODULE_VERSION("2.0");
 +MODULE_LICENSE("GPL");
 +MODULE_AUTHOR("Oxford Semiconductor Ltd, Artem Bogdanov");
@@ -14462,7 +14461,7 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +#define adma_err(fmt, args...)		adma_printk(KERN_ERR, dev_err, fmt, ## args)
 +
 +
-+/** Various */
++// Various
 +enum {
 +	// Normal (non-SG) registers
 +	OXNAS_DMA_REGS_PER_CHANNEL = 8,
@@ -14475,7 +14474,7 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	OXNAS_DMA_MAX_CHANNELS = 5,
 +};
 +
-+/** Registers */
++// Registers
 +enum {
 +	// Normal (non-SG) registers
 +	DMA_CTRL_STATUS = 0x0,
@@ -14495,7 +14494,7 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	DMA_SG_RESETS = 0x0C,
 +};
 +
-+/** Registers internals */
++// Registers internals
 +enum {
 +	// Non-SG
 +	DMA_CTRL_STATUS_FAIR_SHARE_ARB = 1UL << 0,
@@ -14561,13 +14560,13 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	OXNAS_DMA_SG_CHANNEL_NUM_BITS = 8,
 +};
 +
-+/* The available buses to which the DMA controller is attached */
++// The available buses to which the DMA controller is attached
 +typedef enum oxnas_dma_transfer_bus {
 +	OXNAS_DMA_SIDE_A,
 +	OXNAS_DMA_SIDE_B
 +} oxnas_dma_transfer_bus_t;
 +
-+/* Direction of data flow between the DMA controller's pair of interfaces */
++// Direction of data flow between the DMA controller's pair of interfaces
 +typedef enum oxnas_dma_transfer_direction {
 +	OXNAS_DMA_A_TO_A,
 +	OXNAS_DMA_B_TO_A,
@@ -14575,20 +14574,20 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	OXNAS_DMA_B_TO_B
 +} oxnas_dma_transfer_direction_t;
 +
-+/* The available data widths */
++// The available data widths
 +typedef enum oxnas_dma_transfer_width {
 +	OXNAS_DMA_TRANSFER_WIDTH_8BITS,
 +	OXNAS_DMA_TRANSFER_WIDTH_16BITS,
 +	OXNAS_DMA_TRANSFER_WIDTH_32BITS
 +} oxnas_dma_transfer_width_t;
 +
-+/* The mode of the DMA transfer */
++// The mode of the DMA transfer
 +typedef enum oxnas_dma_transfer_mode {
 +	OXNAS_DMA_TRANSFER_MODE_SINGLE,
 +	OXNAS_DMA_TRANSFER_MODE_BURST
 +} oxnas_dma_transfer_mode_t;
 +
-+/* The available transfer targets */
++// The available transfer targets
 +typedef enum oxnas_dma_dreq {
 +	OXNAS_DMA_DREQ_SATA     = 0,
 +	OXNAS_DMA_DREQ_DPE_RX   = 1,
@@ -14658,8 +14657,7 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	dma_addr_t dst_adr;
 +} oxnas_adma_desc_t;
 +
-+/* ---- DMAengine memcpy/memset support -------------------------------- */
-+
++// DMAengine memcpy/memset support
 +typedef struct oxnas_adma_tx {
 +	struct dma_async_tx_descriptor  txd;
 +	dma_addr_t                      src;            /* memcpy */
@@ -14680,7 +14678,7 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +
 +u64 oxnas_dma_mask = OXNAS_MAX_DMA_ADDRESS;
 +
-+/* Pre-defined settings for known DMA devices */
++// Pre-defined settings for known DMA devices
 +oxnas_dma_device_settings_t oxnas_sata_dma_settings = {
 +	.address_               = SATA_DATA_BASE_PA,
 +	.dreq_                  = OXNAS_DMA_DREQ_SATA,
@@ -14717,8 +14715,7 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	.address_really_fixed_  = 0,
 +};
 +
-+/* For use with normal memory to memory transfers as the settings for the source
-+ * of the transfer */
++// For use with normal memory to memory transfers as the settings for the source of the transfer
 +static oxnas_dma_device_settings_t oxnas_ram_only_src_dma_settings = {
 +	.address_               = 0,
 +	.dreq_                  = OXNAS_DMA_DREQ_MEMORY,
@@ -14731,8 +14728,7 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	.address_really_fixed_  = 1,
 +};
 +
-+/* For use in all occasions not covered by oxnas_ram_only_src_dma_settings and
-+ * oxnas_ram_csum_src_dma_settings */
++// For use in all occasions not covered by oxnas_ram_only_src_dma_settings and oxnas_ram_csum_src_dma_settings
 +static oxnas_dma_device_settings_t oxnas_ram_generic_dma_settings = {
 +	.address_               = 0,
 +	.dreq_                  = OXNAS_DMA_DREQ_MEMORY,
@@ -14893,8 +14889,7 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	return nents;
 +}
 +
-+/**
-+ * Optionally blocking acquisition of a DMA channel
++/* Optionally blocking acquisition of a DMA channel
 + * May be invoked either at task or softirq level
 + */
 +struct dma_chan *oxnas_dma_request_chan(
@@ -14939,25 +14934,6 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +
 +		if (channel->sg_entries_ != NULL && dev != NULL) {
 +			channel->settings = settings;
-+/*
-+			if (channel->settings == &oxnas_sata_dma_settings) {
-+				const struct dma_map_ops *common_dma_ops = get_dma_ops(dev);
-+				if (dev->dma_ops == NULL && common_dma_ops != NULL) {
-+					struct dma_map_ops *new_dma_ops = devm_kmemdup(
-+						dev, common_dma_ops, sizeof(struct dma_map_ops), GFP_KERNEL);
-+					if (new_dma_ops != NULL) {
-+						adma_info("setting up channel %u operations optimized for SATA\n",
-+							channel->common.chan_id);
-+						new_dma_ops->map_sg = oxnas_dma_map_sata_sg;
-+						new_dma_ops->unmap_sg = oxnas_dma_unmap_sata_sg;
-+						set_dma_ops(dev, new_dma_ops);
-+						if (dev->platform_data != NULL)
-+							adma_warn("platform_data is not NULL\n");
-+						dev->platform_data = channel;
-+					}
-+				}
-+			}
-+*/
 +		}
 +	}
 +
@@ -14967,8 +14943,7 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	return NULL;
 +}
 +
-+/**
-+ * May be invoked either at task or softirq level
++/* May be invoked either at task or softirq level
 + */
 +static inline void oxnas_dma_free(oxnas_adma_channel_t *const channel)
 +{
@@ -14992,8 +14967,7 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	oxnas_dma_free(channel);
 +}
 +
-+/** 
-+ * Shared between all DMA interrupts and run with interrupts enabled,
++/* Shared between all DMA interrupts and run with interrupts enabled,
 + * thus any access to shared data structures must be sync'ed
 + */
 +static irqreturn_t oxnas_dma_irq_handler(int irq, void *dev_id)
@@ -15092,9 +15066,9 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +
 +static int oxnas_dma_init(struct platform_device *pdev)
 +{
-+    int i;
-+    u32 intId;
-+    void __iomem *port_base = NULL;
++	int i;
++	u32 intId;
++	void __iomem *port_base = NULL;
 +	struct resource *res;
 +
 +#ifdef CONFIG_DRIVERS_PRIVATE_IN_SRAM
@@ -15140,31 +15114,31 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	}
 +	adma_priv->iomap_sg = port_base;
 +
-+    // Initialize the DMA controller
-+    spin_lock_init(&adma_priv->spinlock_);
-+    spin_lock_init(&adma_priv->channel_alloc_spinlock_);
++	// Initialize the DMA controller
++	spin_lock_init(&adma_priv->spinlock_);
++	spin_lock_init(&adma_priv->channel_alloc_spinlock_);
 +
-+    // Initialize channel allocation management
-+    adma_priv->channel_head_ = 0;
++	// Initialize channel allocation management
++	adma_priv->channel_head_ = 0;
 +
-+    // Discover the number of channels available
-+    intId = oxnas_dma_iochannel_read(0, DMA_INTR_ID);
-+    adma_priv->common.chancnt = ((intId) >> 16) & 0xFF;
-+    if (adma_priv->common.chancnt > OXNAS_DMA_MAX_CHANNELS) {
-+	adma_warn("too many channels (reported %u but maximum supported is %u)\n",
++	// Discover the number of channels available
++	intId = oxnas_dma_iochannel_read(0, DMA_INTR_ID);
++	adma_priv->common.chancnt = ((intId) >> 16) & 0xFF;
++	if (adma_priv->common.chancnt > OXNAS_DMA_MAX_CHANNELS) {
++		adma_warn("too many channels (reported %u but maximum supported is %u)\n",
 +		adma_priv->common.chancnt, OXNAS_DMA_MAX_CHANNELS);
-+        adma_priv->common.chancnt = OXNAS_DMA_MAX_CHANNELS;
-+    }
++		adma_priv->common.chancnt = OXNAS_DMA_MAX_CHANNELS;
++	}
 +
-+    intId = ((intId) >> 24) & 0xFF;
-+    if (intId < 4) {
-+        adma_err("%u-channel DMA Controller v%u has no support for v4+ interrupt clearing\n",
-+	adma_priv->common.chancnt, intId);
-+	    return -ENODEV;
-+    }
++	intId = ((intId) >> 24) & 0xFF;
++	if (intId < 4) {
++		adma_err("%u-channel DMA Controller v%u has no support for v4+ interrupt clearing\n",
++			adma_priv->common.chancnt, intId);
++		return -ENODEV;
++	}
 +
-+    adma_info("%u-channel DMA Controller v%u, iomap=0x%08X, iomap_sg=0x%08X\n",
-+        adma_priv->common.chancnt, intId,
++	adma_info("%u-channel DMA Controller v%u, iomap=0x%08X, iomap_sg=0x%08X\n",
++		adma_priv->common.chancnt, intId,
 +	(u32)adma_priv->iomap, (u32)adma_priv->iomap_sg);
 +
 +	// Initialize list of DMA descriptors
@@ -15189,40 +15163,40 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +		return -ENODEV;
 +	}
 +
-+    // Initialize all available DMA channels
++	// Initialize all available DMA channels
 +	INIT_LIST_HEAD(&adma_priv->common.channels);
-+    for (i = adma_priv->common.chancnt - 1; i >= 0; i--) {
-+	u32 irq = 0;
++	for (i = adma_priv->common.chancnt - 1; i >= 0; i--) {
++		u32 irq = 0;
 +
-+        oxnas_adma_channel_t *channel = &adma_priv->channels_[i];
++		oxnas_adma_channel_t *channel = &adma_priv->channels_[i];
 +
-+	channel->common.device = &adma_priv->common;
-+        channel->common.chan_id = i;
-+	list_add(&channel->common.device_node, &adma_priv->common.channels);
++		channel->common.device = &adma_priv->common;
++		channel->common.chan_id = i;
++		list_add(&channel->common.device_node, &adma_priv->common.channels);
 +
-+        // Initialize heads of src and dst SG lists to null
-+	channel->sg_info_ = adma_priv->descriptors + sizeof(oxnas_dma_sg_info_t) * i;
-+        channel->sg_info_->p_srcEntries_ = 0;
-+        channel->sg_info_->p_dstEntries_ = 0;
-+	channel->sg_entries_ = adma_priv->descriptors
-+		+ sizeof(oxnas_dma_sg_info_t) * adma_priv->common.chancnt
-+		+ sizeof(oxnas_dma_sg_entry_t) * adma_priv->sg_entries_per_channel * i;
++		// Initialize heads of src and dst SG lists to null
++		channel->sg_info_ = adma_priv->descriptors + sizeof(oxnas_dma_sg_info_t) * i;
++		channel->sg_info_->p_srcEntries_ = 0;
++		channel->sg_info_->p_dstEntries_ = 0;
++		channel->sg_entries_ = adma_priv->descriptors
++			+ sizeof(oxnas_dma_sg_info_t) * adma_priv->common.chancnt
++			+ sizeof(oxnas_dma_sg_entry_t) * adma_priv->sg_entries_per_channel * i;
 +
-+        channel->callback_ = NULL;
++		channel->callback_ = NULL;
 +
-+        // Per-channel pending queue for the DMAengine layer
-+        INIT_LIST_HEAD(&channel->queue);
-+        channel->active_tx = NULL;
++		// Per-channel pending queue for the DMAengine layer
++		INIT_LIST_HEAD(&channel->queue);
++		channel->active_tx = NULL;
 +
-+        channel->error_code_ = 0;
++		channel->error_code_ = 0;
 +
-+        // Initialize the atomic variable maintaining the count of in-progress
-+        // transfers for the channel. Currently can be a maximum of two, as
-+        // the hardware can only queue details for a pair of transfers
-+        atomic_set(&channel->active_count_, 0);
++		// Initialize the atomic variable maintaining the count of in-progress
++		// transfers for the channel. Currently can be a maximum of two, as
++		// the hardware can only queue details for a pair of transfers
++		atomic_set(&channel->active_count_, 0);
 +
-+        // Add channel to free list
-+        oxnas_dma_free(channel);
++		// Add channel to free list
++		oxnas_dma_free(channel);
 +
 +		// Connect the dma interrupt handler
 +		if (pdev->dev.of_node != NULL)
@@ -15232,7 +15206,7 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +		if (devm_request_irq(&pdev->dev, irq, &oxnas_dma_irq_handler, 0, dev_driver_string(&pdev->dev), channel)) {
 +			panic("DMA: Failed to allocate interrupt %u\n", irq);
 +		}
-+    }
++	}
 +
 +	return 0;
 +}
@@ -15257,102 +15231,113 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	const oxnas_dma_device_settings_t       *dst_settings,
 +	const bool                              isPaused)
 +{
-+    u32 ctrl_status;
-+    u32 direction;
++	u32 ctrl_status;
++	u32 direction;
 +
-+    ctrl_status  = isPaused ? DMA_CTRL_STATUS_PAUSE : 0;							// Paused if requested
++	ctrl_status  = isPaused ? DMA_CTRL_STATUS_PAUSE : 0;    // Paused if requested
 +	ctrl_status |= DMA_CTRL_STATUS_INTERRUPT_ENABLE;
-+    ctrl_status |= (DMA_CTRL_STATUS_FAIR_SHARE_ARB   |							// High priority
-+					DMA_CTRL_STATUS_INTR_CLEAR_ENABLE);						// Use new interrupt clearing register
-+    ctrl_status |= (src_settings->dreq_ << DMA_CTRL_STATUS_SRC_DREQ_SHIFT);	// Source dreq
-+    ctrl_status |= (dst_settings->dreq_ << DMA_CTRL_STATUS_DEST_DREQ_SHIFT);	// Destination dreq
++	ctrl_status |= (DMA_CTRL_STATUS_FAIR_SHARE_ARB          // High priority
++		| DMA_CTRL_STATUS_INTR_CLEAR_ENABLE);               // Use new interrupt clearing register
++	ctrl_status |= (src_settings->dreq_ << DMA_CTRL_STATUS_SRC_DREQ_SHIFT);     // Source dreq
++	ctrl_status |= (dst_settings->dreq_ << DMA_CTRL_STATUS_DEST_DREQ_SHIFT);    // Destination dreq
 +
-+    // Setup the transfer direction and burst/single mode for the two DMA busses
-+    if (src_settings->bus_ == OXNAS_DMA_SIDE_A) {
-+        // Set the burst/single mode for bus A based on src device's settings
-+        if (src_settings->transfer_mode_ == OXNAS_DMA_TRANSFER_MODE_BURST) {
-+            ctrl_status |= DMA_CTRL_STATUS_TRANSFER_MODE_A;
-+        } else {
-+//            ctrl_status &= ~DMA_CTRL_STATUS_TRANSFER_MODE_A;
-+        }
++	// Setup the transfer direction and burst/single mode for the two DMA busses
++	if (src_settings->bus_ == OXNAS_DMA_SIDE_A) {
++		// Set the burst/single mode for bus A based on src device's settings
++		if (src_settings->transfer_mode_ == OXNAS_DMA_TRANSFER_MODE_BURST) {
++			ctrl_status |= DMA_CTRL_STATUS_TRANSFER_MODE_A;
++		}
++		else {
++//			ctrl_status &= ~DMA_CTRL_STATUS_TRANSFER_MODE_A;
++		}
 +
-+        if (dst_settings->bus_ == OXNAS_DMA_SIDE_A) {
-+            direction = OXNAS_DMA_A_TO_A << DMA_CTRL_STATUS_DIR_SHIFT;
-+        } else {
-+            direction = OXNAS_DMA_A_TO_B << DMA_CTRL_STATUS_DIR_SHIFT;
++		if (dst_settings->bus_ == OXNAS_DMA_SIDE_A) {
++			direction = OXNAS_DMA_A_TO_A << DMA_CTRL_STATUS_DIR_SHIFT;
++		}
++		else {
++			direction = OXNAS_DMA_A_TO_B << DMA_CTRL_STATUS_DIR_SHIFT;
 +
-+            // Set the burst/single mode for bus B based on dst device's settings
-+            if (dst_settings->transfer_mode_ == OXNAS_DMA_TRANSFER_MODE_BURST) {
-+                ctrl_status |= DMA_CTRL_STATUS_TRANSFER_MODE_B;
-+            } else {
-+//                ctrl_status &= ~DMA_CTRL_STATUS_TRANSFER_MODE_B;
-+            }
-+        }
-+    } else {
-+        // Set the burst/single mode for bus B based on src device's settings
-+        if (src_settings->transfer_mode_ == OXNAS_DMA_TRANSFER_MODE_BURST) {
-+            ctrl_status |= DMA_CTRL_STATUS_TRANSFER_MODE_B;
-+        } else {
-+//            ctrl_status &= ~DMA_CTRL_STATUS_TRANSFER_MODE_B;
-+        }
++			// Set the burst/single mode for bus B based on dst device's settings
++			if (dst_settings->transfer_mode_ == OXNAS_DMA_TRANSFER_MODE_BURST) {
++				ctrl_status |= DMA_CTRL_STATUS_TRANSFER_MODE_B;
++			}
++			else {
++//				ctrl_status &= ~DMA_CTRL_STATUS_TRANSFER_MODE_B;
++			}
++		}
++	}
++	else {
++		// Set the burst/single mode for bus B based on src device's settings
++		if (src_settings->transfer_mode_ == OXNAS_DMA_TRANSFER_MODE_BURST) {
++			ctrl_status |= DMA_CTRL_STATUS_TRANSFER_MODE_B;
++		}
++		else {
++//			ctrl_status &= ~DMA_CTRL_STATUS_TRANSFER_MODE_B;
++		}
 +
-+        if (dst_settings->bus_ == OXNAS_DMA_SIDE_A) {
-+            direction = OXNAS_DMA_B_TO_A << DMA_CTRL_STATUS_DIR_SHIFT;
++		if (dst_settings->bus_ == OXNAS_DMA_SIDE_A) {
++			direction = OXNAS_DMA_B_TO_A << DMA_CTRL_STATUS_DIR_SHIFT;
 +
-+            // Set the burst/single mode for bus A based on dst device's settings
-+            if (dst_settings->transfer_mode_ == OXNAS_DMA_TRANSFER_MODE_BURST) {
-+                ctrl_status |= DMA_CTRL_STATUS_TRANSFER_MODE_A;
-+            } else {
-+//                ctrl_status &= ~DMA_CTRL_STATUS_TRANSFER_MODE_A;
-+            }
-+        } else {
-+            direction = OXNAS_DMA_B_TO_B << DMA_CTRL_STATUS_DIR_SHIFT;
-+        }
-+    }
-+    ctrl_status |= direction;
++			// Set the burst/single mode for bus A based on dst device's settings
++			if (dst_settings->transfer_mode_ == OXNAS_DMA_TRANSFER_MODE_BURST) {
++				ctrl_status |= DMA_CTRL_STATUS_TRANSFER_MODE_A;
++			}
++			else {
++//				ctrl_status &= ~DMA_CTRL_STATUS_TRANSFER_MODE_A;
++			}
++		}
++		else {
++			direction = OXNAS_DMA_B_TO_B << DMA_CTRL_STATUS_DIR_SHIFT;
++		}
++	}
++	ctrl_status |= direction;
 +
-+    // Setup source address mode fixed or increment
-+    if (likely(src_settings->address_mode_ == OXNAS_DMA_MODE_FIXED)) {
-+        // Fixed address
-+//        ctrl_status &= ~DMA_CTRL_STATUS_SRC_ADR_MODE;
++	// Setup source address mode fixed or increment
++	if (likely(src_settings->address_mode_ == OXNAS_DMA_MODE_FIXED)) {
++		// Fixed address
++//		ctrl_status &= ~DMA_CTRL_STATUS_SRC_ADR_MODE;
 +
-+        // Set up whether fixed address is _really_ fixed
-+        if (src_settings->address_really_fixed_) {
-+            ctrl_status |= DMA_CTRL_STATUS_SOURCE_ADDRESS_FIXED;
-+        } else {
-+//            ctrl_status &= ~DMA_CTRL_STATUS_SOURCE_ADDRESS_FIXED;
-+        }
-+    } else {
-+        // Incrementing address
-+        ctrl_status |= DMA_CTRL_STATUS_SRC_ADR_MODE;
-+//        ctrl_status &= ~DMA_CTRL_STATUS_SOURCE_ADDRESS_FIXED;
-+    }
++		// Set up whether fixed address is _really_ fixed
++		if (src_settings->address_really_fixed_) {
++			ctrl_status |= DMA_CTRL_STATUS_SOURCE_ADDRESS_FIXED;
++		}
++		else {
++//			ctrl_status &= ~DMA_CTRL_STATUS_SOURCE_ADDRESS_FIXED;
++		}
++	}
++	else {
++		// Incrementing address
++		ctrl_status |= DMA_CTRL_STATUS_SRC_ADR_MODE;
++//		ctrl_status &= ~DMA_CTRL_STATUS_SOURCE_ADDRESS_FIXED;
++	}
 +
-+    // Setup destination address mode fixed or increment
-+    if (likely(dst_settings->address_mode_ == OXNAS_DMA_MODE_FIXED)) {
-+        // Fixed address
-+//        ctrl_status &= ~DMA_CTRL_STATUS_DEST_ADR_MODE;
++	// Setup destination address mode fixed or increment
++	if (likely(dst_settings->address_mode_ == OXNAS_DMA_MODE_FIXED)) {
++		// Fixed address
++//		ctrl_status &= ~DMA_CTRL_STATUS_DEST_ADR_MODE;
 +        
-+        // Set up whether fixed address is _really_ fixed
-+        if (dst_settings->address_really_fixed_) {
-+            ctrl_status |= DMA_CTRL_STATUS_DESTINATION_ADDRESS_FIXED;
-+        } else {
-+//            ctrl_status &= ~DMA_CTRL_STATUS_DESTINATION_ADDRESS_FIXED;
-+        }
-+    } else {
-+        // Incrementing address
-+        ctrl_status |= DMA_CTRL_STATUS_DEST_ADR_MODE;
-+//        ctrl_status &= ~DMA_CTRL_STATUS_DESTINATION_ADDRESS_FIXED;
-+    }
++		// Set up whether fixed address is _really_ fixed
++		if (dst_settings->address_really_fixed_) {
++			ctrl_status |= DMA_CTRL_STATUS_DESTINATION_ADDRESS_FIXED;
++		}
++		else {
++//			ctrl_status &= ~DMA_CTRL_STATUS_DESTINATION_ADDRESS_FIXED;
++		}
++	}
++	else {
++		// Incrementing address
++		ctrl_status |= DMA_CTRL_STATUS_DEST_ADR_MODE;
++//		ctrl_status &= ~DMA_CTRL_STATUS_DESTINATION_ADDRESS_FIXED;
++	}
 +
-+    // Set up the width of the transfers on the DMA buses
-+    ctrl_status |= (src_settings->width_ << DMA_CTRL_STATUS_SRC_WIDTH_SHIFT);
-+    ctrl_status |= (dst_settings->width_ << DMA_CTRL_STATUS_DEST_WIDTH_SHIFT);
++	// Set up the width of the transfers on the DMA buses
++	ctrl_status |= (src_settings->width_ << DMA_CTRL_STATUS_SRC_WIDTH_SHIFT);
++	ctrl_status |= (dst_settings->width_ << DMA_CTRL_STATUS_DEST_WIDTH_SHIFT);
 +
-+    // Setup the priority arbitration scheme
-+//    ctrl_status &= ~DMA_CTRL_STATUS_STARVE_LOW_PRIORITY;    // !Starve low priority
++	// Setup the priority arbitration scheme
++//	ctrl_status &= ~DMA_CTRL_STATUS_STARVE_LOW_PRIORITY;    // !Starve low priority
 +
-+    return ctrl_status;
++	return ctrl_status;
 +}
 +
 +static inline unsigned long encode_eot(
@@ -15615,7 +15600,6 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	oxnas_dma_mode_t        dst_mode)
 +{
 +	oxnas_adma_channel_t *channel = container_of(chan, oxnas_adma_channel_t, common);
-+	/* STACK COPIES: as in oxnas_dma_set(), never mutate the globals */
 +	oxnas_dma_device_settings_t src_settings = oxnas_ram_only_src_dma_settings;
 +	oxnas_dma_device_settings_t dst_settings = oxnas_ram_generic_dma_settings;
 +
@@ -15663,50 +15647,6 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +		if (dev_settings == &oxnas_sata_dma_settings) {
 +			oxnas_dma_sg_info_t *const sg_info = channel->sg_info_;
 +			oxnas_dma_device_settings_t *src_settings, *dst_settings;
-+/*
-+			unsigned checked_length = length;
-+
-+			// Assemble complete memory settings
-+			oxnas_ram_generic_dma_settings.address_ = 0;  // Not used for SG transfers
-+			oxnas_ram_generic_dma_settings.address_mode_ = mem_mode;
-+
-+			if (direction == DMA_TO_DEVICE) {
-+				src_settings = &oxnas_ram_generic_dma_settings;
-+				dst_settings = dev_settings;
-+				sg_info->p_srcEntries_ = adma_virt_to_phys(channel->sg_entries_);
-+				sg_info->p_dstEntries_ = adma_virt_to_phys(channel->sg_entries_ + mem_sg_count);
-+			}
-+			else {
-+				src_settings = dev_settings;
-+				dst_settings = &oxnas_ram_generic_dma_settings;
-+				sg_info->p_dstEntries_ = adma_virt_to_phys(channel->sg_entries_);
-+				sg_info->p_srcEntries_ = adma_virt_to_phys(channel->sg_entries_ + mem_sg_count);
-+			}
-+
-+			if (checked_length == 0) {
-+				struct scatterlist *sg, *end_sg = mem_sg + mem_sg_count;
-+				for (sg = mem_sg; sg < end_sg; sg++)
-+					checked_length += sg->length;
-+			}
-+			if (unlikely(checked_length > OXNAS_DMA_MAX_TRANSFER_LENGTH)) {
-+				adma_warn("destination entry too long, zeroing\n");
-+				checked_length = 0;
-+			}
-+			// Fill in the SG list entry with start address, ensuring address
-+			// does not affect the checksum enabling high order adr bit
-+//			channel->sg_entries_[mem_sg_count].addr_   = dev_settings->address_ & OXNAS_DMA_ADR_MASK;
-+			channel->sg_entries_[mem_sg_count].addr_   = dev_settings->address_;
-+			// Fill in the length, checking that it does not exceed the hardware allowed maximum
-+			channel->sg_entries_[mem_sg_count].length_ = checked_length;
-+			channel->sg_entries_[mem_sg_count].p_next_ = 0;
-+
-+			sg_info->qualifer_ = ((channel->common.chan_id << OXNAS_DMA_SG_CHANNEL_BIT)
-+				| (src_settings->read_eot_policy_ << OXNAS_DMA_SG_SRC_EOT_BIT)
-+				| (dst_settings->write_eot_policy_ << OXNAS_DMA_SG_DST_EOT_BIT)
-+				| (1UL << OXNAS_DMA_SG_QUALIFIER_BIT));
-+			// Flags are the same for source and destination for each SG transfer component
-+			sg_info->control_ = encode_control_status(src_settings, dst_settings, false);
-+*/
 +			oxnas_dma_sg_entry_t *e = channel->sg_entries_;
 +			struct scatterlist *s;
 +			unsigned total = 0;
@@ -15903,8 +15843,8 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	}
 +}
 +
-+/* ---- Cookie-aware tx_status ------------------------------------------ */
-+
++/* Cookie-aware tx_status
++ */
 +static enum dma_status oxnas_adma_tx_status(struct dma_chan *chan,
 +	dma_cookie_t            cookie,
 +	struct dma_tx_state     *txstate)
@@ -15923,8 +15863,8 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	return oxnas_dma_busy_check(channel) ? DMA_IN_PROGRESS : DMA_COMPLETE;
 +}
 +
-+/* ---- Channel resource management ------------------------------------- */
-+
++/* Channel resource management
++ */
 +static int oxnas_adma_alloc_chan_resources(struct dma_chan *chan)
 +{
 +	/* The dma_chan already owns its ADMA channel: probe() linked
@@ -15955,7 +15895,8 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +
 +/* Finish a descriptor: cookie, waiter/client callback, then free.
 + * kfree from hardirq is fine; the channel return is deferred to
-+ * process context via the workqueue. */
++ * process context via the workqueue
++ */
 +static void oxnas_adma_tx_finish(oxnas_adma_tx_t *tx)
 +{
 +	dma_cookie_complete(&tx->txd);
@@ -15975,7 +15916,8 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +}
 +
 +/* Returns the channel to the free list from process context; the
-+ * allocation spinlock is _bh, so it must not be taken from hardirq. */
++ * allocation spinlock is _bh, so it must not be taken from hardirq
++ */
 +static void oxnas_adma_tx_work(struct work_struct *work)
 +{
 +	oxnas_adma_tx_t *tx = container_of(work, oxnas_adma_tx_t, work);
@@ -15989,7 +15931,8 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +/* ISR trampoline. The driver's interrupt handler ends every transfer
 + * by calling channel->callback_(channel->callback_param_) - that is
 + * the only completion notification the hardware gives, so the
-+ * DMAengine queue must hang off it. */
++ * DMAengine queue must hang off it
++ */
 +static void oxnas_adma_tx_isr(void *arg)
 +{
 +	oxnas_adma_channel_t *channel = arg;
@@ -16011,7 +15954,8 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 + * (channel->active_tx) is atomic, so the issue_pending() idle path
 + * and the ISR completion path can never program the same descriptor
 + * twice; a descriptor is only ever programmed after the previous one
-+ * has completed, which is what the chained-transfer hardware needs. */
++ * has completed, which is what the chained-transfer hardware needs
++ */
 +static void oxnas_adma_start_next(oxnas_adma_channel_t *channel)
 +{
 +	oxnas_dma_device_settings_t src;
@@ -16103,8 +16047,8 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	}
 +}
 +
-+/* DMAengine ops ------------------------------------------------------- */
-+
++/* DMAengine ops
++ */
 +static dma_cookie_t oxnas_adma_submit_tx(struct dma_async_tx_descriptor *txd)
 +{
 +	oxnas_adma_tx_t *tx = container_of(txd, oxnas_adma_tx_t, txd);
@@ -16125,8 +16069,8 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	return cookie;
 +}
 +
-+/* ---- Blocking sync wrapper (exported API from dma.h) ---------------- */
-+
++/* Blocking sync wrapper (exported API from dma.h)
++ */
 +int oxnas_dma_memset_sync(dma_addr_t dst, u8 pattern, unsigned length)
 +{
 +	DECLARE_COMPLETION_ONSTACK(done);
@@ -16237,8 +16181,8 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	oxnas_adma_start_next(channel);
 +}
 +
-+/* Async helper (exported API from dma.h) ------------------------------ */
-+
++/* Async helper (exported API from dma.h)
++ */
 +int oxnas_dma_memcpy_async(dma_addr_t dst, dma_addr_t src,
 +	unsigned length, void (*callback)(void *), void *callback_arg)
 +{
@@ -16331,8 +16275,6 @@ diff -ruN a/drivers/dma/oxnas_adma.c b/drivers/dma/oxnas_adma.c
 +	}
 +	else
 +		adma_warn("OF is NULL\n");
-+
-+//	adma_info("OXNAS DMA registered\n");
 +
 +	return 0;
 +
@@ -16780,8 +16722,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_desc.c b/drivers/net/etherne
 +}
 diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_desc.h b/drivers/net/ethernet/synopsys/gmac/gmac_desc.h
 --- a/drivers/net/ethernet/synopsys/gmac/gmac_desc.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/drivers/net/ethernet/synopsys/gmac/gmac_desc.h	2026-11-22 14:36:55.000000000 +0300
-@@ -0,0 +1,581 @@
++++ b/drivers/net/ethernet/synopsys/gmac/gmac_desc.h	2026-11-27 03:15:27.000000000 +0300
+@@ -0,0 +1,584 @@
 +/*
 + * linux/arch/arm/mach-oxnas/gmac_desc.h
 + *
@@ -16808,6 +16750,9 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_desc.h b/drivers/net/etherne
 +enum {
 +	COPRO_TX_QUEUE_NUM_ENTRIES = 4,
 +	COPRO_CMD_QUEUE_NUM_ENTRIES = 6,
++	COPRO_FW_TX_QUEUE_SIZE = 54 * sizeof(gmac_dma_desc_t),
++	COPRO_FW_JOB_QUEUE_SIZE = 54 * 0x8C,
++	COPRO_FW_WORKSPACE_SIZE = COPRO_FW_TX_QUEUE_SIZE + COPRO_FW_JOB_QUEUE_SIZE,
 +};
 +
 +enum {
@@ -17674,7 +17619,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_ethtool.h b/drivers/net/ethe
 +
 diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac.h b/drivers/net/ethernet/synopsys/gmac/gmac.h
 --- a/drivers/net/ethernet/synopsys/gmac/gmac.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/drivers/net/ethernet/synopsys/gmac/gmac.h	2026-11-25 15:10:23.000000000 +0300
++++ b/drivers/net/ethernet/synopsys/gmac/gmac.h	2026-11-27 00:53:52.000000000 +0300
 @@ -0,0 +1,289 @@
 +/*
 + * linux/arch/arm/mach-oxnas/gmac.h
@@ -17907,12 +17852,12 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac.h b/drivers/net/ethernet/syn
 +	gmac_desc_list_info_t     rx_gmac_desc_list_info;
 +
 +#ifdef CONFIG_LEON_COPRO
++	// ARM's local CoPro parameter storage
++	copro_params_t            copro_params_;
++
 +	// DMA coherent memory for CoPro's parameter storage
 +	copro_params_t            *shared_copro_params_;
 +	dma_addr_t                shared_copro_params_phys;
-+
-+	// ARM's local CoPro parameter storage
-+	copro_params_t            copro_params_;
 +
 +	// Queue for commands/acks to/from CoPro
 +	cmd_que_t                 cmd_queue_;
@@ -17937,7 +17882,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac.h b/drivers/net/ethernet/syn
 +	unsigned                  tx_skb_ring_head_index;
 +	atomic_t                  tx_skb_ring_buf[TX_SKB_RING_ELEMENTS];
 +
-+	// sysfs dir tree root for recovery button driver
++	// sysfs dir tree root for gmac driver
 +	struct kset               *link_state_kset;
 +	struct kobject            link_state_kobject;
 +	struct work_struct        link_state_change_work;
@@ -17967,8 +17912,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac.h b/drivers/net/ethernet/syn
 +
 diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/ethernet/synopsys/gmac/gmac-napi.c
 --- a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/drivers/net/ethernet/synopsys/gmac/gmac-napi.c	2026-11-25 18:03:41.000000000 +0300
-@@ -0,0 +1,3698 @@
++++ b/drivers/net/ethernet/synopsys/gmac/gmac-napi.c	2026-11-27 03:39:02.000000000 +0300
+@@ -0,0 +1,3692 @@
 +/*
 + * linux/arch/arm/mach-oxnas/gmac.c
 + *
@@ -18047,31 +17992,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +	GMAC_RESET_TIMEOUT_MS = 10000,
 +	CHECK_TX_STOP_TRIES = 10000,
 +	COPRO_GENERAL_TIMEOUT = HZ*3,
-+	COPRO_CMD_QUEUE_RETRIES = 11,
 +};
-+
-+#ifdef CONFIG_LEON_COPRO
-+
-+static int copro_queue_cmd(u32 opcode, u32 operand, cmd_que_ack_callback callback)
-+{
-+	int cmd_queue_result;
-+	int tries = COPRO_CMD_QUEUE_RETRIES;
-+
-+	do {
-+		cmd_queue_result = cmd_que_queue_cmd(&gmac_priv->cmd_queue_, opcode, operand, callback);
-+		if (cmd_queue_result) {
-+			udelay(100);
-+		}
-+	} while (cmd_queue_result && --tries);
-+
-+	if (cmd_queue_result) {
-+		gmac_warn("CoPro command queue full (op=0x%08x), CoPro not draining\n", opcode);
-+		return -EBUSY;
-+	}
-+	return 0;
-+}
-+
-+#endif // CONFIG_LEON_COPRO
 +
 +
 +MODULE_AUTHOR("Brian Clarke (Oxford Semiconductor Ltd), Artem Bogdanov");
@@ -18305,6 +18226,11 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +static inline void gmac_tx_poll_demand(void)
 +{
 +	dma_reg_write(DMA_TX_POLL_REG, 0);
++}
++
++static inline void gmac_rx_poll_demand(void)
++{
++	dma_reg_write(DMA_RX_POLL_REG, 0);
 +}
 +
 +static inline struct sk_buff *gmac_alloc_skb(const unsigned length)
@@ -18636,7 +18562,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +		// Issue a Rx poll demand to restart Rx descriptor processing and DFF
 +		// mode does not automatically restart descriptor processing after a
 +		// descriptor unavailable event
-+		dma_reg_write(DMA_RX_POLL_REG, 0);
++		gmac_rx_poll_demand();
 +	}
 +}
 +
@@ -19469,6 +19395,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +
 +		job->frag_len_[i] = skb_frag_size(skbfrag);
 +	}
++	if (nr_frags < COPRO_NUM_TX_FRAGS_DIRECT)
++		job->frag_len_[nr_frags] = 0;
 +
 +	// Is h/w checksumming and possibly TSO required
 +	if (likely((skb->ip_summed == CHECKSUM_PARTIAL) && ((ntohs(skb->protocol) == ETH_P_IP)
@@ -19477,7 +19405,16 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +#endif
 +		)))
 +	{
-+		flags |= (1UL << TX_JOB_FLAGS_ACCELERATE_BIT);
++		struct iphdr *iph = ip_hdr(skb);
++		unsigned int hdr = skb_network_offset(skb) + iph->ihl * 4;
++		if (iph->protocol == IPPROTO_TCP)
++			hdr += tcp_hdrlen(skb);
++		else if (iph->protocol == IPPROTO_UDP)
++			hdr += sizeof(struct udphdr);
++		if (skb->len > hdr)
++			flags |= (1UL << TX_JOB_FLAGS_ACCELERATE_BIT);  // with payload LEON can do this
++		else
++			skb_checksum_help(skb);  // software csum
 +	}
 +	else if (unlikely(skb->ip_summed == CHECKSUM_PARTIAL)) {
 +		// CHECKSUM_PARTIAL that the LEON firmware cannot accelerate (VLAN in
@@ -19498,6 +19435,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +	job->iphdr_       = hdr_dma_address + skb_network_offset(skb);
 +	job->iphdr_csum_  = ip_hdr(skb)->check;
 +	job->tso_segs_    = skb_shinfo(skb)->gso_segs;
++//	job->tso_segs_    = skb_is_gso(skb) ? skb_shinfo(skb)->gso_segs : 0;
 +	job->tso_size_    = skb_shinfo(skb)->gso_size;
 +	job->flags_       = flags;
 +	job->statistics_  = 0;
@@ -19756,7 +19694,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +	gmac_tx_poll_demand();
 +
 +	if (napi_schedule_prep(&gmac_priv->txrx_napi)) {
-+		atomic_and(~(DMA_INT_ENABLE_TXRX_MASK | DMA_INT_ENABLE_VX_MASK), &gmac_priv->int_enable);
++		atomic_and(~(DMA_INT_ENABLE_TXRX_MASK
++			| DMA_INT_ENABLE_VX_MASK), &gmac_priv->int_enable);
 +		__napi_schedule(&gmac_priv->txrx_napi);
 +	}
 +}
@@ -19855,7 +19794,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +		// Accumulate receive statistics
 +		gmac_priv->stats.rx_over_errors++;
 +		gmac_priv->stats.rx_errors++;
-+		dma_reg_write(DMA_RX_POLL_REG, 0);
++		gmac_rx_poll_demand();
 +	}
 +	if (int_status & (1UL << DMA_STATUS_OVF_BIT)) {
 +		gmac_warn("Rx overflow\n");
@@ -19910,7 +19849,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +	// Attempt to fill any empty slots in the Rx ring
 +	refill_rx_ring();
 +
-+	dma_reg_write(DMA_RX_POLL_REG, 0);
++	gmac_rx_poll_demand();
 +
 +	if (netif_queue_stopped(gmac_priv->netdev)
 +		&& !(atomic_read(&gmac_priv->tx_skb_ring_buf[gmac_priv->tx_skb_ring_tail_index])))
@@ -19993,9 +19932,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +
 +	if (napi_resched) {
 +		if (napi_schedule_prep(&gmac_priv->txrx_napi)) {
-+			spin_lock_irqsave(&gmac_priv->cmd_que_lock_, irq_flags);
 +			atomic_and(~(DMA_INT_ENABLE_TXRX_MASK | DMA_INT_ENABLE_VX_MASK), &gmac_priv->int_enable);
-+			spin_unlock_irqrestore(&gmac_priv->cmd_que_lock_, irq_flags);
 +#ifndef CONFIG_LEON_COPRO
 +			gmac_int_en_clr(int_disable_mask | DMA_INT_ENABLE_NA_MASK);
 +#endif
@@ -20880,10 +20817,12 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +
 +#ifdef CONFIG_LEON_COPRO
 +	if (!gmac_priv->shared_copro_params_) {
-+		size_t copro_data_size = sizeof(copro_params_t)
++		size_t copro_data_size = ALIGN((sizeof(copro_params_t)
 +			+ sizeof(gmac_fwd_intrs_t)
 +			+ sizeof(gmac_cmd_que_ent_t) * COPRO_CMD_QUEUE_NUM_ENTRIES
-+			+ sizeof(gmac_tx_que_ent_t) * COPRO_TX_QUEUE_NUM_ENTRIES;
++			+ sizeof(gmac_tx_que_ent_t) * COPRO_TX_QUEUE_NUM_ENTRIES
++			+ COPRO_FW_WORKSPACE_SIZE),
++				PAGE_SIZE);
 +		// Allocate SRAM for the command queue entries
 +		gmac_priv->shared_copro_params_ = oxnas_sram_zalloc(copro_data_size,
 +			&gmac_priv->shared_copro_params_phys);
@@ -20894,19 +20833,19 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +			goto open_err_out;
 +		}
 +
-+		gmac_priv->copro_params_.cmd_que_head_ = gmac_priv->shared_copro_params_phys + sizeof(copro_params_t);
++		gmac_priv->copro_params_.fwd_intrs_mailbox_ = gmac_priv->shared_copro_params_phys + sizeof(copro_params_t);
++		gmac_priv->copro_params_.cmd_que_head_ = gmac_priv->copro_params_.fwd_intrs_mailbox_ + sizeof(gmac_fwd_intrs_t);
 +		gmac_priv->copro_params_.cmd_que_tail_
 +			= gmac_priv->copro_params_.cmd_que_head_ + sizeof(gmac_cmd_que_ent_t) * COPRO_CMD_QUEUE_NUM_ENTRIES;
-+		gmac_priv->copro_params_.fwd_intrs_mailbox_ = gmac_priv->copro_params_.cmd_que_tail_;
-+		gmac_priv->copro_params_.tx_que_head_ = gmac_priv->copro_params_.fwd_intrs_mailbox_ + sizeof(gmac_fwd_intrs_t);
++		gmac_priv->copro_params_.tx_que_head_ = gmac_priv->copro_params_.cmd_que_tail_;
 +		gmac_priv->copro_params_.tx_que_tail_
 +			= gmac_priv->copro_params_.tx_que_head_ + sizeof(gmac_tx_que_ent_t) * COPRO_TX_QUEUE_NUM_ENTRIES;
-+		gmac_priv->copro_params_.free_start_ = (gmac_priv->copro_params_.tx_que_tail_ + 15UL) & ~15UL;
++		gmac_priv->copro_params_.free_start_ = gmac_priv->copro_params_.tx_que_tail_;
 +
 +		// Set Rx interrupt mitigation behaviour (may change between opens)
-+		gmac_priv->copro_params_.rx_mitigation_        = COPRO_RX_MITIGATION;
++		gmac_priv->copro_params_.rx_mitigation_ = COPRO_RX_MITIGATION;
 +		gmac_priv->copro_params_.rx_mitigation_frames_ = COPRO_RX_MITIGATION_FRAMES;
-+		gmac_priv->copro_params_.rx_mitigation_usec_   = COPRO_RX_MITIGATION_USECS;
++		gmac_priv->copro_params_.rx_mitigation_usec_ = COPRO_RX_MITIGATION_USECS;
 +	}
 +
 +
@@ -20917,14 +20856,15 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +	gmac_init_copro();
 +
 +	// Print the layout so the workspace can be checked against the SRAM map / LEON image location
-+	gmac_info("CoPro SRAM: params=0x%08X cmd=0x%08X..0x%08X fwd=0x%08X tx=0x%08X..0x%08X free=0x%08X\n",
++	gmac_info("CoPro SRAM: params=0x%08X fwd=0x%08X cmd=0x%08X..0x%08X tx=0x%08X..0x%08X ws=0x%08X..0x%08X\n",
 +		gmac_priv->shared_copro_params_phys,
++		gmac_priv->copro_params_.fwd_intrs_mailbox_,
 +		gmac_priv->copro_params_.cmd_que_head_,
 +		gmac_priv->copro_params_.cmd_que_tail_,
-+		gmac_priv->copro_params_.fwd_intrs_mailbox_,
 +		gmac_priv->copro_params_.tx_que_head_,
 +		gmac_priv->copro_params_.tx_que_tail_,
-+		gmac_priv->copro_params_.free_start_);
++		gmac_priv->copro_params_.free_start_,
++		gmac_priv->copro_params_.free_start_ + COPRO_FW_WORKSPACE_SIZE);
 +
 +	// Enable selected semaphore register bits to cause ARM interrupts
 +	oxnas_sys_write(SYS_CTRL_SEMA_MASKA_CTRL, SEM_INTA_MASK);
@@ -21257,7 +21197,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +static int gmac_state_proc_init(void)
 +{
 +	if (!gmac_leon_state) {
-+		gmac_leon_state = ioremap(GMAC_LEON_STATE_PA, GMAC_LEON_STATE_SZ);
++		gmac_leon_state = cached_sram_base + (GMAC_LEON_STATE_PA - SRAM_BASE_PA);
 +		if (IS_ERR(gmac_leon_state))
 +			gmac_leon_state = NULL;
 +	}
@@ -21270,7 +21210,6 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +{
 +	remove_proc_entry("gmac_state", NULL);
 +	if (gmac_leon_state) {
-+		iounmap(gmac_leon_state);
 +		gmac_leon_state = NULL;
 +	}
 +}
@@ -21347,22 +21286,22 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +
 +#if defined(CONFIG_LEON_COPRO) && defined(CONFIG_LEON_OFFLOAD_TX)
 +	// Do Tx H/W checksum and SG list processing
-+	netdev->features |= NETIF_F_HW_CSUM;
-+//	netdev->features |= NETIF_F_IP_CSUM;
++//	netdev->features |= NETIF_F_HW_CSUM;
++	netdev->features |= NETIF_F_IP_CSUM;
 +	netdev->features |= NETIF_F_SG;
 +	// Do hardware TCP/IP Segmentation Offload
 +	netdev->features |= NETIF_F_TSO;
 +#ifdef SUPPORT_IPV6
-+//	netdev->features |= NETIF_F_IPV6_CSUM;
++	netdev->features |= NETIF_F_IPV6_CSUM;
 +	netdev->features |= NETIF_F_TSO6;
 +#endif
 +#elif !defined(CONFIG_LEON_COPRO)
 +	// Do Tx H/W checksum and SG list processing
-+	netdev->features |= NETIF_F_HW_CSUM;
-+//	netdev->features |= NETIF_F_IP_CSUM;
++//	netdev->features |= NETIF_F_HW_CSUM;
++	netdev->features |= NETIF_F_IP_CSUM;
 +	netdev->features |= NETIF_F_SG;
 +#ifdef SUPPORT_IPV6
-+//	netdev->features |= NETIF_F_IPV6_CSUM;
++	netdev->features |= NETIF_F_IPV6_CSUM;
 +#endif
 +#endif // CONFIG_LEON_COPRO && CONFIG_LEON_OFFLOAD_TX
 +
@@ -21669,8 +21608,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac-napi.c b/drivers/net/etherne
 +module_exit(gmac_module_cleanup);
 diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.c b/drivers/net/ethernet/synopsys/gmac/gmac_offload.c
 --- a/drivers/net/ethernet/synopsys/gmac/gmac_offload.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/drivers/net/ethernet/synopsys/gmac/gmac_offload.c	2026-11-20 23:34:24.000000000 +0300
-@@ -0,0 +1,232 @@
++++ b/drivers/net/ethernet/synopsys/gmac/gmac_offload.c	2026-11-27 01:44:26.000000000 +0300
+@@ -0,0 +1,238 @@
 +/*
 + * linux/arch/arm/mach-oxnas/gmac-offload.c
 + *
@@ -21699,10 +21638,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.c b/drivers/net/ethe
 +#include "gmac_offload.h"
 +
 +
-+void cmd_que_init(
-+	cmd_que_t          *queue,
-+	gmac_cmd_que_ent_t *start,
-+	int                 num_entries)
++void cmd_que_init(cmd_que_t *queue, gmac_cmd_que_ent_t *start, int num_entries)
 +{
 +	// Initialize queue management metadata
 +	INIT_LIST_HEAD(&queue->ack_list_);
@@ -21743,7 +21679,6 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.c b/drivers/net/ethe
 +	// Going to process the acknowledgement, so remove it from the pending list
 +	list_del(list_entry);
 +
-+//printk("ak=0x%08x:0x%08x\n", ack->entry_->opcode_, ack->entry_->operand_);
 +	// Invoke the acknowledgement handler routine
 +	ack->callback_(ack->entry_);
 +
@@ -21754,15 +21689,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.c b/drivers/net/ethe
 +	return 0;
 +}
 +
-+#define OPCODE_FLAGS_MASK ((1UL << (GMAC_CMD_QUE_OWN_BIT)) |\
-+						   (1UL << (GMAC_CMD_QUE_ACK_BIT)) |\
-+						   (1UL << (GMAC_CMD_QUE_SKP_BIT)))
-+
-+int cmd_que_queue_cmd(
-+	cmd_que_t            *queue,
-+	u32                   opcode,
-+	u32                   operand,
-+	cmd_que_ack_callback  callback)
++int cmd_que_queue_cmd(cmd_que_t *queue, u32 opcode, u32 operand, cmd_que_ack_callback callback)
 +{
 +	int result = -1;
 +	unsigned long irq_flags;
@@ -21785,7 +21712,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.c b/drivers/net/ethe
 +		if (!(old_opcode & (1UL << GMAC_CMD_QUE_ACK_BIT))) {
 +			// We've found an entry we own that isn't waiting for the contained
 +			// ack to be processed, so we can use it for the new command
-+			opcode &= ~(OPCODE_FLAGS_MASK);
++			opcode &= ~(GMAC_CMD_OPCODE_FLAGS_MASK);
 +			opcode |= (1UL << GMAC_CMD_QUE_OWN_BIT);
 +
 +			if (callback) {
@@ -21828,10 +21755,26 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.c b/drivers/net/ethe
 +	return result;
 +}
 +
-+void tx_que_init(
-+	tx_que_t          *queue,
-+	gmac_tx_que_ent_t *start,
-+	int                num_entries)
++int copro_queue_cmd(u32 opcode, u32 operand, cmd_que_ack_callback callback)
++{
++	int cmd_queue_result;
++	int tries = COPRO_CMD_QUEUE_RETRIES;
++
++	do {
++		cmd_queue_result = cmd_que_queue_cmd(&gmac_priv->cmd_queue_, opcode, operand, callback);
++		if (cmd_queue_result) {
++			udelay(100);
++		}
++	} while (cmd_queue_result && --tries);
++
++	if (cmd_queue_result) {
++		gmac_warn("CoPro command queue full (op=0x%08x), CoPro not draining\n", opcode);
++		return -EBUSY;
++	}
++	return 0;
++}
++
++void tx_que_init(tx_que_t *queue, gmac_tx_que_ent_t *start, int num_entries)
 +{
 +	// Initialize queue management metadata
 +	queue->head_ = start;
@@ -21861,7 +21804,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.c b/drivers/net/ethe
 +		entry = queue->r_ptr_;
 +		if (entry->flags_ & (1UL << TX_JOB_FLAGS_OWN_BIT)) {
 +			entry = (volatile gmac_tx_que_ent_t*)0;
-+		} else {
++		}
++		else {
 +			tx_que_inc_r_ptr(queue);
 +		}
 +	}
@@ -21898,6 +21842,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.c b/drivers/net/ethe
 +	wmb();
 +
 +	entry->flags_ |= (1UL << TX_JOB_FLAGS_OWN_BIT);
++	wmb();
 +
 +	tx_que_inc_w_ptr(&gmac_priv->tx_queue_);
 +}
@@ -21905,8 +21850,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.c b/drivers/net/ethe
 +#endif // #ifdef CONFIG_LEON_COPRO
 diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.h b/drivers/net/ethernet/synopsys/gmac/gmac_offload.h
 --- a/drivers/net/ethernet/synopsys/gmac/gmac_offload.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/drivers/net/ethernet/synopsys/gmac/gmac_offload.h	2026-11-20 18:57:04.000000000 +0300
-@@ -0,0 +1,133 @@
++++ b/drivers/net/ethernet/synopsys/gmac/gmac_offload.h	2026-11-26 23:21:00.000000000 +0300
+@@ -0,0 +1,125 @@
 +/*
 + * linux/arch/arm/mach-oxnas/gmac-offload.h
 + *
@@ -21931,6 +21876,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.h b/drivers/net/ethe
 +
 +#ifdef CONFIG_LEON_COPRO
 +
++
++#define COPRO_CMD_QUEUE_RETRIES 23
 +
 +enum {
 +	COPRO_RX_MITIGATION = 0,	// No Rx mitigation in CoPro
@@ -21993,23 +21940,12 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.h b/drivers/net/ethe
 +	TX_JOB_FLAGS_ACCELERATE_BIT = 2,
 +};
 +
-+extern void cmd_que_init(
-+	cmd_que_t          *queue,
-+	gmac_cmd_que_ent_t *start,
-+	int                 num_entries);
 +
++extern void cmd_que_init(cmd_que_t *queue, gmac_cmd_que_ent_t *start, int num_entries);
 +extern int cmd_que_dequeue_ack(cmd_que_t *queue);
-+
-+extern int cmd_que_queue_cmd(
-+	cmd_que_t             *queue,
-+	u32                   opcode,
-+	u32                   operand,
-+	cmd_que_ack_callback  callback);
-+
-+extern void tx_que_init(
-+	tx_que_t          *queue,
-+	gmac_tx_que_ent_t *start,
-+	int                num_entries);
++extern int cmd_que_queue_cmd(cmd_que_t *queue, u32 opcode, u32 operand, cmd_que_ack_callback callback);
++extern int copro_queue_cmd(u32 opcode, u32 operand, cmd_que_ack_callback callback);
++extern void tx_que_init(tx_que_t *queue, gmac_tx_que_ent_t *start, int num_entries);
 +
 +static inline int tx_que_not_empty(tx_que_t *queue)
 +{
@@ -22036,6 +21972,7 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_offload.h b/drivers/net/ethe
 +extern volatile gmac_tx_que_ent_t* tx_que_get_idle_job(void);
 +
 +extern void tx_que_new_job(volatile gmac_tx_que_ent_t *entry);
++
 +
 +#endif // CONFIG_LEON_COPRO
 +
@@ -22678,8 +22615,8 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_phy.h b/drivers/net/ethernet
 +
 diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_reg.h b/drivers/net/ethernet/synopsys/gmac/gmac_reg.h
 --- a/drivers/net/ethernet/synopsys/gmac/gmac_reg.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/drivers/net/ethernet/synopsys/gmac/gmac_reg.h	2026-11-18 09:14:05.000000000 +0300
-@@ -0,0 +1,605 @@
++++ b/drivers/net/ethernet/synopsys/gmac/gmac_reg.h	2026-11-26 22:38:07.000000000 +0300
+@@ -0,0 +1,603 @@
 +/*
 + * linux/arch/arm/mach-oxnas/gmac_reg.h
 + *
@@ -22712,7 +22649,6 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_reg.h b/drivers/net/ethernet
 + */
 +static inline u32 mac_reg_read(int reg_num)
 +{
-+//printk("Reading MAC register %u at byte adr 0x%08x\n", reg_num, gmac_priv->macBase + (reg_num << 2));
 +	return readl((void __iomem *)(gmac_priv->macBase + (reg_num << 2)));
 +}
 +
@@ -22721,7 +22657,6 @@ diff -ruN a/drivers/net/ethernet/synopsys/gmac/gmac_reg.h b/drivers/net/ethernet
 + */
 +static inline void mac_reg_write(int reg_num, u32 value)
 +{
-+//printk("Writing MAC register %u at byte adr 0x%08x with 0x%08x\n", reg_num, gmac_priv->macBase + (reg_num << 2), value);
 +	writel(value, (void __iomem *)(gmac_priv->macBase + (reg_num << 2)));
 +}
 +
